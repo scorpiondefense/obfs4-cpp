@@ -1,4 +1,5 @@
 #include "obfs4/transport/conn.hpp"
+#include <algorithm>
 #include <cstring>
 
 namespace obfs4::transport {

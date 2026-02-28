@@ -1,7 +1,9 @@
 #include "obfs4/transport/handshake.hpp"
 #include "obfs4/transport/framing.hpp"
 #include "obfs4/common/csrand.hpp"
+#include <algorithm>
 #include <cstring>
+#include <string>
 
 namespace obfs4::transport {
 
