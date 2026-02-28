@@ -1,6 +1,7 @@
 #include "obfs4/common/replay_filter.hpp"
 #include "obfs4/common/csrand.hpp"
 #include "obfs4/common/drbg.hpp"
+#include <cstring>
 
 namespace obfs4::common {
 
