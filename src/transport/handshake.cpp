@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstring>
 #include <string>
+#include <cstdio>  // for debug hex dumps
 
 namespace obfs4::transport {
 
@@ -230,6 +231,31 @@ std::optional<size_t> ServerHandshake::find_mark() const {
 
     if (!hmac_result) return std::nullopt;
 
+    // Debug: log key material, representative, and expected mark
+    static int debug_count = 0;
+    if (debug_count < 5) {
+        debug_count++;
+        std::string key_hex, repr_hex, mark_hex;
+        for (size_t i = 0; i < key.size(); ++i) {
+            char buf[3]; snprintf(buf, sizeof(buf), "%02x", key[i]);
+            key_hex += buf;
+        }
+        for (size_t i = 0; i < REPRESENTATIVE_LENGTH && i < buffer_.size(); ++i) {
+            char buf[3]; snprintf(buf, sizeof(buf), "%02x", buffer_[i]);
+            repr_hex += buf;
+        }
+        for (size_t i = 0; i < MARK_LENGTH; ++i) {
+            char buf[3]; snprintf(buf, sizeof(buf), "%02x", (*hmac_result)[i]);
+            mark_hex += buf;
+        }
+        fprintf(stderr, "[obfs4-debug] mac_key(%zu bytes): %s\n", key.size(), key_hex.c_str());
+        fprintf(stderr, "[obfs4-debug] representative(32 bytes): %s\n", repr_hex.c_str());
+        fprintf(stderr, "[obfs4-debug] expected_mark(16 bytes): %s\n", mark_hex.c_str());
+        fprintf(stderr, "[obfs4-debug] buffer_size: %zu, searching positions %zu to %zu\n",
+                buffer_.size(), REPRESENTATIVE_LENGTH,
+                buffer_.size() - MARK_LENGTH);
+    }
+
     for (size_t pos = REPRESENTATIVE_LENGTH; pos + MARK_LENGTH <= buffer_.size(); ++pos) {
         bool match = true;
         for (size_t j = 0; j < MARK_LENGTH; ++j) {
@@ -238,7 +264,10 @@ std::optional<size_t> ServerHandshake::find_mark() const {
                 break;
             }
         }
-        if (match) return pos;
+        if (match) {
+            fprintf(stderr, "[obfs4-debug] MARK FOUND at position %zu\n", pos);
+            return pos;
+        }
     }
 
     return std::nullopt;
