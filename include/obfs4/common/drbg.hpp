@@ -14,6 +14,8 @@ using DrbgSeed = std::array<uint8_t, 24>;
 
 // SipHash-2-4 OFB DRBG
 // Port of Go's common/drbg
+// IMPORTANT: Uses streaming/accumulating SipHash state to match Go's hash.Hash
+// interface where Write() calls accumulate internal state across NextBlock() calls.
 class HashDrbg {
 public:
     HashDrbg() = default;
@@ -30,7 +32,15 @@ public:
     bool initialized() const { return initialized_; }
 
 private:
-    std::array<uint8_t, 16> key_{};
+    // Streaming SipHash-2-4 state that accumulates across next_block() calls.
+    // This matches Go's hash.Hash64 interface where Write() modifies internal
+    // state and Sum() finalizes on a copy without resetting.
+    struct SipState {
+        uint64_t v0{}, v1{}, v2{}, v3{};
+        size_t total_len{0};
+    };
+
+    SipState sip_{};
     std::array<uint8_t, 8> ofb_{};
     bool initialized_ = false;
 };

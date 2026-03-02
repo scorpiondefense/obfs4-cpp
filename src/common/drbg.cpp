@@ -73,20 +73,59 @@ uint64_t siphash_2_4(const uint8_t key[16], const uint8_t msg[8]) {
 // --- HashDrbg ---
 
 void HashDrbg::init(const DrbgSeed& seed) {
-    std::memcpy(key_.data(), seed.data(), 16);
+    // Initialize streaming SipHash state from key (first 16 bytes of seed)
+    uint64_t k0 = le64(seed.data());
+    uint64_t k1 = le64(seed.data() + 8);
+    sip_.v0 = k0 ^ 0x736f6d6570736575ULL;
+    sip_.v1 = k1 ^ 0x646f72616e646f6dULL;
+    sip_.v2 = k0 ^ 0x6c7967656e657261ULL;
+    sip_.v3 = k1 ^ 0x7465646279746573ULL;
+    sip_.total_len = 0;
+
+    // OFB initial state from last 8 bytes of seed
     std::memcpy(ofb_.data(), seed.data() + 16, 8);
     initialized_ = true;
 }
 
 void HashDrbg::init(std::span<const uint8_t, 24> seed) {
-    std::memcpy(key_.data(), seed.data(), 16);
+    uint64_t k0 = le64(seed.data());
+    uint64_t k1 = le64(seed.data() + 8);
+    sip_.v0 = k0 ^ 0x736f6d6570736575ULL;
+    sip_.v1 = k1 ^ 0x646f72616e646f6dULL;
+    sip_.v2 = k0 ^ 0x6c7967656e657261ULL;
+    sip_.v3 = k1 ^ 0x7465646279746573ULL;
+    sip_.total_len = 0;
+
     std::memcpy(ofb_.data(), seed.data() + 16, 8);
     initialized_ = true;
 }
 
 std::array<uint8_t, 8> HashDrbg::next_block() {
-    // OFB mode: ofb = SipHash-2-4(key, ofb)
-    uint64_t output = siphash_2_4(key_.data(), ofb_.data());
+    // Feed OFB into the streaming SipHash (accumulates internal state).
+    // This matches Go's drbg.sip.Write(drbg.ofb[:]) which modifies
+    // the hash state without resetting it.
+    uint64_t m = le64(ofb_.data());
+    sip_.v3 ^= m;
+    sipround(sip_.v0, sip_.v1, sip_.v2, sip_.v3);
+    sipround(sip_.v0, sip_.v1, sip_.v2, sip_.v3);
+    sip_.v0 ^= m;
+    sip_.total_len += 8;
+
+    // Finalize on a COPY (matches Go's Sum() which doesn't modify state).
+    uint64_t sv0 = sip_.v0, sv1 = sip_.v1, sv2 = sip_.v2, sv3 = sip_.v3;
+    uint64_t b = static_cast<uint64_t>(sip_.total_len & 0xff) << 56;
+    sv3 ^= b;
+    sipround(sv0, sv1, sv2, sv3);
+    sipround(sv0, sv1, sv2, sv3);
+    sv0 ^= b;
+    sv2 ^= 0xff;
+    sipround(sv0, sv1, sv2, sv3);
+    sipround(sv0, sv1, sv2, sv3);
+    sipround(sv0, sv1, sv2, sv3);
+    sipround(sv0, sv1, sv2, sv3);
+    uint64_t output = sv0 ^ sv1 ^ sv2 ^ sv3;
+
+    // Update OFB state with finalized hash (matches Go's copy to drbg.ofb)
     put_le64(ofb_.data(), output);
 
     std::array<uint8_t, 8> result;
