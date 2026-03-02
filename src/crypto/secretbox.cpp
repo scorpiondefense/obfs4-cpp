@@ -266,10 +266,13 @@ void poly1305(std::span<uint8_t, 16> out,
     h3 = (h3 & ~mask) | (g3 & mask);
     h4 = (h4 & ~mask) | (g4 & mask);
 
-    uint64_t f0 = h0 | (h1 << 26);
-    uint64_t f1 = (h1 >> 6) | (h2 << 20);
-    uint64_t f2 = (h2 >> 12) | (h3 << 14);
-    uint64_t f3 = (h3 >> 18) | (h4 << 8);
+    // Convert from radix-2^26 limbs to 32-bit LE words.
+    // Must truncate to 32 bits: Go's uint32 overflows silently,
+    // but our uint64_t limbs would produce overlapping bits.
+    uint32_t f0 = static_cast<uint32_t>(h0 | (h1 << 26));
+    uint32_t f1 = static_cast<uint32_t>((h1 >> 6) | (h2 << 20));
+    uint32_t f2 = static_cast<uint32_t>((h2 >> 12) | (h3 << 14));
+    uint32_t f3 = static_cast<uint32_t>((h3 >> 18) | (h4 << 8));
 
     u128 acc = static_cast<u128>(f0) + s0;
     store32_le(out.data(), static_cast<uint32_t>(acc));
