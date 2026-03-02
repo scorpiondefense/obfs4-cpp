@@ -1,4 +1,5 @@
 #include "obfs4/transport/framing.hpp"
+#include <cinttypes>
 #include <cstring>
 
 namespace obfs4::transport {
@@ -99,7 +100,7 @@ Decoder::decode(std::span<const uint8_t> data) {
             uint16_t raw_len = obfuscated ^ mask;
 
             fprintf(stderr, "[obfs4-decode] frame#%d: obfuscated=0x%04x mask=0x%04x "
-                    "raw_len=%u counter=%llu buf_size=%zu\n",
+                    "raw_len=%u counter=%" PRIu64 " buf_size=%zu\n",
                     frame_idx, obfuscated, mask, raw_len, counter_, buffer_.size());
 
             // Validate: raw_len must be in [OVERHEAD, MAX_SEGMENT_LENGTH - 2]
@@ -130,7 +131,7 @@ Decoder::decode(std::span<const uint8_t> data) {
         auto pt = crypto::Secretbox::open(key_, nonce, ct);
         if (!pt) {
             fprintf(stderr, "[obfs4-decode] frame#%d: TagMismatch! pending_len=%u "
-                    "counter=%llu\n", frame_idx, *pending_len_, counter_);
+                    "counter=%" PRIu64 "\n", frame_idx, *pending_len_, counter_);
             // Print first 32 bytes of ciphertext for debugging
             fprintf(stderr, "[obfs4-decode] ct[0:32]: ");
             for (size_t i = 0; i < 32 && i < *pending_len_; ++i)
