@@ -1,4 +1,5 @@
 #include "obfs4/transport/conn.hpp"
+#include "obfs4/common/csrand.hpp"
 #include <algorithm>
 #include <cstring>
 
@@ -96,6 +97,17 @@ void Obfs4Conn::update_prng_seed(const common::DrbgSeed& seed) {
     if (iat_mode_ != IATMode::None) {
         iat_dist_.reset(seed, 0, 100000, true);  // IAT in microseconds
     }
+}
+
+std::chrono::milliseconds Obfs4Conn::get_close_delay_duration() const {
+    if (!close_delay_.enabled) {
+        return std::chrono::milliseconds(0);
+    }
+    auto max_ms = std::chrono::duration_cast<std::chrono::milliseconds>(close_delay_.max_delay).count();
+    if (max_ms <= 0) {
+        return std::chrono::milliseconds(0);
+    }
+    return std::chrono::milliseconds(common::random_intn(static_cast<uint64_t>(max_ms)));
 }
 
 }  // namespace obfs4::transport

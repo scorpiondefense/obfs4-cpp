@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <expected>
 #include <span>
@@ -50,6 +51,21 @@ public:
 
     bool initialized() const { return initialized_; }
 
+    // Close-after-delay configuration for server side.
+    // When a handshake fails, the server delays closing for a random
+    // duration (0 to max_delay), consuming and discarding incoming data
+    // during the delay to avoid timing side-channels against probing.
+    struct CloseDelayConfig {
+        bool enabled = false;
+        std::chrono::seconds max_delay{60};
+    };
+
+    void set_close_delay(CloseDelayConfig config) { close_delay_ = config; }
+    const CloseDelayConfig& close_delay() const { return close_delay_; }
+
+    // Get the actual random delay to use (0 to max_delay)
+    std::chrono::milliseconds get_close_delay_duration() const;
+
 private:
     Encoder encoder_;
     Decoder decoder_;
@@ -57,6 +73,7 @@ private:
     common::WeightedDist len_dist_;
     common::WeightedDist iat_dist_;
     bool initialized_ = false;
+    CloseDelayConfig close_delay_;
 };
 
 }  // namespace obfs4::transport

@@ -16,7 +16,7 @@ public:
     // max_entries: maximum number of digests to remember
     // ttl: time-to-live for entries
     ReplayFilter(size_t max_entries = 65536,
-                 std::chrono::seconds ttl = std::chrono::hours(1));
+                 std::chrono::seconds ttl = std::chrono::hours(3));
 
     // Returns true if this data has been seen before
     // If not seen, adds it to the filter

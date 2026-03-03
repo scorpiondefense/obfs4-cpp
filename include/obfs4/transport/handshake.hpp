@@ -23,6 +23,10 @@ constexpr size_t REPRESENTATIVE_LENGTH = 32;
 constexpr size_t AUTH_LENGTH = 32;
 constexpr size_t INLINE_SEED_FRAME_LENGTH = 18 + 3 + 24;  // 45
 
+// Handshake timeout constants (matching Go reference)
+constexpr auto CLIENT_HANDSHAKE_TIMEOUT = std::chrono::seconds(60);
+constexpr auto SERVER_HANDSHAKE_TIMEOUT = std::chrono::seconds(30);
+
 enum class HandshakeError {
     BufferOverflow,
     MarkNotFound,
