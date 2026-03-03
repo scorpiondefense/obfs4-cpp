@@ -149,6 +149,14 @@ if(BUILD_TESTING)
         tests/test_socks5.cpp
         tests/test_registry.cpp
         tests/test_pt_env.cpp
+        # Parity tests (Go reference compatibility)
+        tests/test_parity_obfs2.cpp
+        tests/test_parity_obfs3.cpp
+        tests/test_parity_obfs4.cpp
+        tests/test_parity_scramblesuit.cpp
+        tests/test_parity_crypto.cpp
+        tests/test_parity_socks5.cpp
+        tests/test_parity_registry.cpp
     )
 
     add_executable(obfs4_tests ${TEST_SOURCES})
