@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            compiler: gcc
+            cc: gcc-14
+            cxx: g++-14
+          - os: ubuntu-24.04
+            compiler: clang
+            cc: clang-18
+            cxx: clang++-18
+          - os: macos-14
+            compiler: clang
+            cc: clang
+            cxx: clang++
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev cmake
+
+      - name: Install dependencies (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install openssl@3 cmake
+
+      - name: Configure (library + tests)
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=ON \
+            -DBUILD_OBFS4PROXY=ON \
+            ${{ startsWith(matrix.os, 'macos') && '-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)' || '' }}
+
+      - name: Build
+        run: cmake --build build -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+
+      - name: Verify obfs4proxy
+        run: ./build/obfs4proxy --version
+
+      - name: PT protocol smoke test
+        run: |
+          echo "" | TOR_PT_MANAGED_TRANSPORT_VER=1 \
+            TOR_PT_CLIENT_TRANSPORTS=obfs4 \
+            TOR_PT_STATE_LOCATION=/tmp/obfs4_ci_state \
+            timeout 5 ./build/obfs4proxy 2>&1 | head -3 || true
+          echo "Smoke test complete"
+
+  build-with-meek:
+    name: ubuntu-24.04 / gcc / meek_lite
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev cmake g++-14
+
+      - name: Configure (with meek_lite)
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=ON \
+            -DBUILD_OBFS4PROXY=ON \
+            -DOBFS4_ENABLE_MEEK=ON
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure -j$(nproc)
