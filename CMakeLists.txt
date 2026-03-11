@@ -92,7 +92,7 @@ endif()
 
 target_compile_options(obfs4 PRIVATE
     -Wall -Wextra -Wpedantic -Werror
-    -Wno-error=stringop-overflow -Wno-error=alloc-size-larger-than
+    -Wno-error=stringop-overflow
 )
 
 # obfs4proxy binary
