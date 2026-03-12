@@ -92,8 +92,10 @@ endif()
 
 target_compile_options(obfs4 PRIVATE
     -Wall -Wextra -Wpedantic -Werror
-    -Wno-error=stringop-overflow
 )
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(obfs4 PRIVATE -Wno-error=stringop-overflow)
+endif()
 
 # obfs4proxy binary
 if(BUILD_OBFS4PROXY)

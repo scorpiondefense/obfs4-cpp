@@ -1,5 +1,4 @@
 #include "obfs4/transport/framing.hpp"
-#include <cinttypes>
 #include <cstring>
 
 namespace obfs4::transport {
@@ -89,7 +88,6 @@ Decoder::decode(std::span<const uint8_t> data) {
 
     buffer_.insert(buffer_.end(), data.begin(), data.end());
 
-    int frame_idx = 0;
     while (true) {
         if (!pending_len_) {
             if (buffer_.size() < 2) break;
@@ -99,17 +97,10 @@ Decoder::decode(std::span<const uint8_t> data) {
             uint16_t mask = drbg_.next_length_mask();
             uint16_t raw_len = obfuscated ^ mask;
 
-            fprintf(stderr, "[obfs4-decode] frame#%d: obfuscated=0x%04x mask=0x%04x "
-                    "raw_len=%u counter=%" PRIu64 " buf_size=%zu\n",
-                    frame_idx, obfuscated, mask, raw_len, counter_, buffer_.size());
-
             // Validate: raw_len must be in [OVERHEAD, MAX_SEGMENT_LENGTH - 2]
             // (secretbox overhead = 16, so minimum sealed size is 16)
             if (raw_len < crypto::Secretbox::OVERHEAD ||
                 raw_len > MAX_SEGMENT_LENGTH - 2) {
-                fprintf(stderr, "[obfs4-decode] frame#%d: LENGTH OUT OF RANGE "
-                        "[%zu, %zu], using random fallback\n",
-                        frame_idx, crypto::Secretbox::OVERHEAD, MAX_SEGMENT_LENGTH - 2);
                 // Length oracle mitigation: use a random length, then fail on tag
                 auto block = drbg_.next_block();
                 raw_len = (static_cast<uint16_t>(block[0]) << 8 |
@@ -130,22 +121,9 @@ Decoder::decode(std::span<const uint8_t> data) {
         auto ct = std::span<const uint8_t>(buffer_.data(), *pending_len_);
         auto pt = crypto::Secretbox::open(key_, nonce, ct);
         if (!pt) {
-            fprintf(stderr, "[obfs4-decode] frame#%d: TagMismatch! pending_len=%u "
-                    "counter=%" PRIu64 "\n", frame_idx, *pending_len_, counter_);
-            // Print first 32 bytes of ciphertext for debugging
-            fprintf(stderr, "[obfs4-decode] ct[0:32]: ");
-            for (size_t i = 0; i < 32 && i < *pending_len_; ++i)
-                fprintf(stderr, "%02x", buffer_[i]);
-            fprintf(stderr, "\n");
-            // Print nonce
-            fprintf(stderr, "[obfs4-decode] nonce: ");
-            for (size_t i = 0; i < 24; ++i)
-                fprintf(stderr, "%02x", nonce[i]);
-            fprintf(stderr, "\n");
             return std::unexpected(FrameError::TagMismatch);
         }
         increment_counter();
-        frame_idx++;
 
         result.frames.push_back(DecodedFrame{std::move(*pt)});
         buffer_.erase(buffer_.begin(), buffer_.begin() + *pending_len_);
