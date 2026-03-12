@@ -94,7 +94,10 @@ target_compile_options(obfs4 PRIVATE
     -Wall -Wextra -Wpedantic -Werror
 )
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(obfs4 PRIVATE -Wno-error=stringop-overflow)
+    target_compile_options(obfs4 PRIVATE
+        -Wno-error=stringop-overflow
+        -Wno-error=free-nonheap-object
+    )
 endif()
 
 # obfs4proxy binary
